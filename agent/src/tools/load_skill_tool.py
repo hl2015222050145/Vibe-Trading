@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from src.agent.skills import SkillsLoader
 from src.agent.tools import BaseTool
+
+logger = logging.getLogger(__name__)
 
 
 class LoadSkillTool(BaseTool):
@@ -42,6 +45,12 @@ class LoadSkillTool(BaseTool):
         """
         name = kwargs["name"]
         content = self._loader.get_content(name)
+        if content.startswith("Error:"):
+            message = f"Skill load failed: {name}"
+        else:
+            message = f"Skill loaded: {name}"
+        print(message, flush=True)
+        logger.info(message)
         return json.dumps({
             "status": "ok" if not content.startswith("Error:") else "error",
             "content": content,

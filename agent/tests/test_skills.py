@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -82,6 +84,48 @@ class TestSkill:
         s = Skill(name="test", dir_path=tmp_path)
         assert s.load_support_file("nope.md") is None
 
+    def test_when_to_activate_metadata(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "alpha"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: alpha\n---\n"
+            "# Alpha\n\n"
+            "Intro\n\n"
+            "## When to Activate\n\n"
+            "- Use for momentum\n"
+            "- Use for breakouts\n\n"
+            "## Workflow\n\n"
+            "Steps",
+            encoding="utf-8",
+        )
+
+        loader = SkillsLoader(tmp_path, user_skills_dir=tmp_path / "empty", use_skillkit=False)
+        skill = loader.skills[0]
+
+        assert skill.metadata["when_to_activate"] == "- Use for momentum\n- Use for breakouts"
+
+    def test_when_to_activate_bold_keywords(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "a-stock-data"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: a-stock-data\n---\n"
+            "## When to Activate\n\n"
+            "- 用户要看**限售解禁日历**\n"
+            "- 用户要看**当日强势股 / 题材归因 / 概念热点**\n",
+            encoding="utf-8",
+        )
+
+        loader = SkillsLoader(tmp_path, user_skills_dir=tmp_path / "empty", use_skillkit=False)
+        skill = loader.skills[0]
+
+        assert skill.metadata["activation_keywords"] == [
+            "限售解禁日历",
+            "当日强势股",
+            "题材归因",
+            "概念热点",
+        ]
+        assert [s.name for s in loader.match_skills("查一下限售解禁日历")] == ["a-stock-data"]
+
 
 # ---------------------------------------------------------------------------
 # SkillsLoader
@@ -147,6 +191,46 @@ class TestSkillsLoader:
         assert "Error" in content
         assert "nonexistent" in content
 
+    def test_match_skills_uses_activation_text(self, tmp_path: Path, empty_user_dir: Path) -> None:
+        skill_dir = tmp_path / "a-stock-data"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            "---\n"
+            "name: a-stock-data\n"
+            "category: data-source\n"
+            "description: A股行情、估值、研报、资金流数据工具包\n"
+            "---\n"
+            "## When to Activate\n\n"
+            "- 用户要查 A 股个股估值\n"
+            "- 用户要看北向资金动向\n",
+            encoding="utf-8",
+        )
+        loader = SkillsLoader(tmp_path, user_skills_dir=empty_user_dir, use_skillkit=False)
+
+        matches = loader.match_skills("帮我分析 600519 的估值和北向资金")
+
+        assert [skill.name for skill in matches] == ["a-stock-data"]
+
+    def test_match_skills_detects_strong_stock_theme_question(self, tmp_path: Path, empty_user_dir: Path) -> None:
+        skill_dir = tmp_path / "a-stock-data"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            "---\n"
+            "name: a-stock-data\n"
+            "category: data-source\n"
+            "description: A股行情、强势股、题材归因数据工具包\n"
+            "---\n"
+            "## When to Activate\n\n"
+            "- 用户要看当日强势股\n"
+            "- 用户要做题材归因\n",
+            encoding="utf-8",
+        )
+        loader = SkillsLoader(tmp_path, user_skills_dir=empty_user_dir, use_skillkit=False)
+
+        matches = loader.match_skills("今天哪些股票走强，主要是什么题材")
+
+        assert [skill.name for skill in matches] == ["a-stock-data"]
+
     def test_empty_dir(self, tmp_path: Path, empty_user_dir: Path) -> None:
         loader = SkillsLoader(tmp_path, user_skills_dir=empty_user_dir)
         assert loader.skills == []
@@ -160,3 +244,80 @@ class TestSkillsLoader:
     def test_nonexistent_dir(self, tmp_path: Path, empty_user_dir: Path) -> None:
         loader = SkillsLoader(tmp_path / "nope", user_skills_dir=empty_user_dir)
         assert loader.skills == []
+
+    def test_skillkit_can_be_disabled(self, skills_dir: Path, empty_user_dir: Path) -> None:
+        loader = SkillsLoader(skills_dir, user_skills_dir=empty_user_dir, use_skillkit=False)
+        assert {s.name for s in loader.skills} == {"alpha", "beta", "gamma"}
+
+    def test_skillkit_import_failure_falls_back(self, skills_dir: Path, empty_user_dir: Path) -> None:
+        with patch.dict("sys.modules", {"skillkit": None}):
+            loader = SkillsLoader(skills_dir, user_skills_dir=empty_user_dir)
+        assert loader.get_content("alpha").startswith('<skill name="alpha">')
+
+    def test_skillkit_loader_result_is_normalized(self, tmp_path: Path, empty_user_dir: Path) -> None:
+        skill_dir = tmp_path / "skillkit-alpha"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: ignored\n---\nFallback body",
+            encoding="utf-8",
+        )
+        fake_skillkit = SimpleNamespace(
+            load_skill=lambda path: {
+                "name": "skillkit-alpha",
+                "description": "Loaded through skillkit",
+                "category": "analysis",
+                "body": "Skillkit body",
+                "metadata": {"source": "skillkit"},
+            }
+        )
+
+        with patch.dict("sys.modules", {"skillkit": fake_skillkit}):
+            loader = SkillsLoader(tmp_path, user_skills_dir=empty_user_dir)
+
+        assert len(loader.skills) == 1
+        skill = loader.skills[0]
+        assert skill.name == "skillkit-alpha"
+        assert skill.description == "Loaded through skillkit"
+        assert skill.category == "analysis"
+        assert skill.body == "Skillkit body"
+        assert skill.metadata == {"source": "skillkit"}
+
+    def test_skillkit_manager_discovery_is_used(self, tmp_path: Path, empty_user_dir: Path) -> None:
+        skill_dir = tmp_path / "manager-alpha"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: manager-alpha\ncategory: strategy\ndescription: Local description\n---\nManager body",
+            encoding="utf-8",
+        )
+
+        class FakeSkillManager:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+                self.discovered = False
+                self.directory = Path(str(kwargs["project_skill_dir"]))
+
+            def discover(self) -> None:
+                self.discovered = True
+
+            def list_skills(self) -> list[SimpleNamespace]:
+                assert self.discovered is True
+                if not (self.directory / "manager-alpha" / "SKILL.md").exists():
+                    return []
+                return [
+                    SimpleNamespace(
+                        name="manager-alpha",
+                        description="Discovered through skillkit",
+                    )
+                ]
+
+        fake_skillkit = SimpleNamespace(SkillManager=FakeSkillManager)
+
+        with patch.dict("sys.modules", {"skillkit": fake_skillkit}):
+            loader = SkillsLoader(tmp_path, user_skills_dir=empty_user_dir)
+
+        assert len(loader.skills) == 1
+        skill = loader.skills[0]
+        assert skill.name == "manager-alpha"
+        assert skill.description == "Discovered through skillkit"
+        assert skill.category == "strategy"
+        assert skill.body == "Manager body"

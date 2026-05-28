@@ -5,6 +5,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+import os
 from urllib.parse import urlsplit
 
 import requests

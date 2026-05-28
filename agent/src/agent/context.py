@@ -91,6 +91,23 @@ _MEMORY_SECTION = """
 """
 
 
+def _format_auto_skill_block(matches: list) -> str:
+    """Format matched skill hints for the user message."""
+    if not matches:
+        return ""
+    lines = [
+        "<auto-selected-skills>",
+        "The user's message appears to match these skills. You MUST call load_skill for each relevant skill before doing the task:",
+    ]
+    for skill in matches:
+        description = skill.description[:240]
+        if len(skill.description) > 240:
+            description += "..."
+        lines.append(f'- {skill.name}: call load_skill("{skill.name}") first. {description}')
+    lines.append("</auto-selected-skills>")
+    return "\n".join(lines)
+
+
 class ContextBuilder:
     """Builds message context for AgentLoop.
 
@@ -169,6 +186,15 @@ class ContextBuilder:
 
         # Auto-recall: inject relevant memories into user message
         enriched = user_message
+        matched_skills = self.skills_loader.match_skills(user_message, max_results=1)
+        skill_block = _format_auto_skill_block(matched_skills)
+        if skill_block:
+            for skill in matched_skills:
+                message = f"Skill auto-selected: {skill.name}"
+                print(message, flush=True)
+                logger.info(message)
+            enriched = f"{skill_block}\n\n{enriched}"
+
         if self._persistent_memory:
             try:
                 recalls = self._persistent_memory.find_relevant(user_message, max_results=3)
