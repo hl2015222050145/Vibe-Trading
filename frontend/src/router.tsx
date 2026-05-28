@@ -23,7 +23,7 @@ const AlphaZoo = lazy(() =>
 function PageLoader() {
   return (
     <div className="flex h-[60vh] items-center justify-center text-muted-foreground">
-      Loading…
+      加载中...
     </div>
   );
 }

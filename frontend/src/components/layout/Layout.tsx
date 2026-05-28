@@ -11,11 +11,11 @@ import { ConnectionBanner } from "@/components/layout/ConnectionBanner";
 const APP_VERSION = "v0.1.8";
 
 const NAV = [
-  { to: "/", icon: BarChart3, label: "Home" },
-  { to: "/agent", icon: Bot, label: "Agent" },
-  { to: "/alpha-zoo", icon: Layers, label: "Alpha Zoo" },
-  { to: "/settings", icon: Settings, label: "Settings" },
-  { to: "/correlation", icon: BarChart3, label: "Correlation Matrix" },
+  { to: "/", icon: BarChart3, label: "首页" },
+  { to: "/agent", icon: Bot, label: "智能体" },
+  { to: "/alpha-zoo", icon: Layers, label: "Alpha 因子库" },
+  { to: "/settings", icon: Settings, label: "设置" },
+  { to: "/correlation", icon: BarChart3, label: "相关性矩阵" },
 ];
 
 export function Layout() {
@@ -112,12 +112,12 @@ export function Layout() {
             <div className="flex items-center justify-between px-4 py-2">
               <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <MessageSquare className="h-3.5 w-3.5" />
-                Sessions
+                会话
               </span>
               <Link
                 to="/agent"
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                title="New Chat"
+                title="新建聊天"
               >
                 <Plus className="h-3.5 w-3.5" />
               </Link>
@@ -131,7 +131,7 @@ export function Layout() {
                   ))}
                 </div>
               ) : sessions.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-muted-foreground/60">No sessions yet</p>
+                <p className="px-3 py-2 text-xs text-muted-foreground/60">暂无会话</p>
               ) : null}
               {sessions.map((s) => {
                 const isActive = s.session_id === activeSessionId;
@@ -170,22 +170,22 @@ export function Layout() {
                     )}
                     {!isRenaming && isDeleting ? (
                       <div className="absolute right-0.5 flex items-center gap-0.5">
-                        <button onClick={() => deleteSession(s.session_id)} className="p-1 text-danger hover:bg-danger/10 rounded text-[10px] font-medium">Confirm</button>
-                        <button onClick={() => setDeleteTarget(null)} className="p-1 text-muted-foreground hover:bg-muted rounded text-[10px]">Cancel</button>
+                        <button onClick={() => deleteSession(s.session_id)} className="p-1 text-danger hover:bg-danger/10 rounded text-[10px] font-medium">确认</button>
+                        <button onClick={() => setDeleteTarget(null)} className="p-1 text-muted-foreground hover:bg-muted rounded text-[10px]">取消</button>
                       </div>
                     ) : !isRenaming ? (
                       <div className="absolute right-1 opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRenameTarget(s.session_id); setRenameValue(s.title || ""); }}
                           className="p-1 text-muted-foreground hover:text-foreground rounded"
-                          title="Rename"
+                          title="重命名"
                         >
                           <Pencil className="h-3 w-3" />
                         </button>
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(s.session_id); }}
                           className="p-1 text-muted-foreground hover:text-danger rounded"
-                          title="Delete?"
+                          title="删除？"
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -205,10 +205,10 @@ export function Layout() {
         <div className={cn("border-t", collapsed ? "p-1 flex flex-col items-center gap-1" : "p-3 space-y-2")}>
           {collapsed ? (
             <>
-              <button onClick={toggle} className="p-1.5 text-muted-foreground hover:text-foreground rounded transition-colors" title={dark ? "Light" : "Dark"}>
+              <button onClick={toggle} className="p-1.5 text-muted-foreground hover:text-foreground rounded transition-colors" title={dark ? "浅色" : "深色"}>
                 {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
               </button>
-              <button onClick={() => setCollapsed(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded transition-colors" title="Expand">
+              <button onClick={() => setCollapsed(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded transition-colors" title="展开">
                 <ChevronsRight className="h-3.5 w-3.5" />
               </button>
             </>
@@ -220,13 +220,13 @@ export function Layout() {
                   className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-                  {dark ? "Light" : "Dark"}
+                  {dark ? "浅色" : "深色"}
                 </button>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setCollapsed(true)}
                     className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
-                    title="Collapse"
+                    title="收起"
                   >
                     <ChevronsLeft className="h-3.5 w-3.5" />
                   </button>
